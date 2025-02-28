@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <cuda_runtime.h>
+#include <math.h>
 
 #define WIDTH 2048  // Large matrix size
+#define EPSILON 1e-4
 
 // Naïve matrix multiplication (No tiling, inefficient)
 __global__ void matMulNaive(float *A, float *B, float *C, int Width) {
@@ -15,6 +17,23 @@ __global__ void matMulNaive(float *A, float *B, float *C, int Width) {
         }
         C[Row * Width + Col] = Pvalue;
     }
+}
+
+// Function to verify the results
+bool verifyResult(float *A, float *B, float *C, int Width) {
+    for (int i = 0; i < Width; i++) {
+        for (int j = 0; j < Width; j++) {
+            float expected = 0.0;
+            for (int k = 0; k < Width; k++) {
+                expected += A[i * Width + k] * B[k * Width + j];
+            }
+            if (fabs(C[i * Width + j] - expected) > EPSILON) {
+                printf("Mismatch at (%d, %d): expected %0.4f, got %0.4f\n", i, j, expected, C[i * Width + j]);
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 int main() {
@@ -62,31 +81,14 @@ int main() {
     // Copy result back to host
     cudaMemcpy(h_C, d_C, size, cudaMemcpyDeviceToHost);
 
-    // Print input matrices and output matrix
-    printf("Matrix A:\n");
-    for (int i = 0; i < 5; i++) {
-        for (int j = 0; j < 5; j++) {
-            printf("%0.2f ", h_A[i * WIDTH + j]);
-        }
-        printf("\n");
+    // Verify result
+    if (verifyResult(h_A, h_B, h_C, WIDTH)) {
+        printf("Matrix multiplication is correct!\n");
+    } else {
+        printf("Matrix multiplication verification failed!\n");
     }
 
-    printf("\nMatrix B:\n");
-    for (int i = 0; i < 5; i++) {
-        for (int j = 0; j < 5; j++) {
-            printf("%0.2f ", h_B[i * WIDTH + j]);
-        }
-        printf("\n");
-    }
-
-    printf("\nMatrix C (Result):\n");
-    for (int i = 0; i < 5; i++) {
-        for (int j = 0; j < 5; j++) {
-            printf("%0.2f ", h_C[i * WIDTH + j]);
-        }
-        printf("\n");
-    }
-
+    // Print elapsed time
     printf("\nElapsed Time: %f ms\n", elapsedTime);
 
     // Free memory
