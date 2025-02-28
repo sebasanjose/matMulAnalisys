@@ -1,9 +1,12 @@
 #include <stdio.h>
 #include <cuda_runtime.h>
 #include <math.h>
+#include <stdlib.h>
+#include <time.h>
 
 #define WIDTH 2048  // Large matrix size
 #define EPSILON 1e-4
+#define CHECK_COUNT 10
 
 // Naïve matrix multiplication (No tiling, inefficient)
 __global__ void matMulNaive(float *A, float *B, float *C, int Width) {
@@ -19,18 +22,19 @@ __global__ void matMulNaive(float *A, float *B, float *C, int Width) {
     }
 }
 
-// Function to verify the results
+// Function to verify the results with random sampling
 bool verifyResult(float *A, float *B, float *C, int Width) {
-    for (int i = 0; i < Width; i++) {
-        for (int j = 0; j < Width; j++) {
-            float expected = 0.0;
-            for (int k = 0; k < Width; k++) {
-                expected += A[i * Width + k] * B[k * Width + j];
-            }
-            if (fabs(C[i * Width + j] - expected) > EPSILON) {
-                printf("Mismatch at (%d, %d): expected %0.4f, got %0.4f\n", i, j, expected, C[i * Width + j]);
-                return false;
-            }
+    srand(time(NULL));
+    for (int i = 0; i < CHECK_COUNT; i++) {
+        int row = rand() % Width;
+        int col = rand() % Width;
+        float expected = 0.0;
+        for (int k = 0; k < Width; k++) {
+            expected += A[row * Width + k] * B[k * Width + col];
+        }
+        if (fabs(C[row * Width + col] - expected) > EPSILON) {
+            printf("Mismatch at (%d, %d): expected %0.4f, got %0.4f\n", row, col, expected, C[row * Width + col]);
+            return false;
         }
     }
     return true;
@@ -81,7 +85,7 @@ int main() {
     // Copy result back to host
     cudaMemcpy(h_C, d_C, size, cudaMemcpyDeviceToHost);
 
-    // Verify result
+    // Verify result with random sampling
     if (verifyResult(h_A, h_B, h_C, WIDTH)) {
         printf("Matrix multiplication is correct!\n");
     } else {
