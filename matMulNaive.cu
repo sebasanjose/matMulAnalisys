@@ -45,11 +45,49 @@ int main() {
     dim3 blockSize(16, 16);
     dim3 gridSize((WIDTH + blockSize.x - 1) / blockSize.x, (WIDTH + blockSize.y - 1) / blockSize.y);
 
+    // Measure execution time
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start);
+
     // Execute the naive kernel
     matMulNaive<<<gridSize, blockSize>>>(d_A, d_B, d_C, WIDTH);
 
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    float elapsedTime;
+    cudaEventElapsedTime(&elapsedTime, start, stop);
+
     // Copy result back to host
     cudaMemcpy(h_C, d_C, size, cudaMemcpyDeviceToHost);
+
+    // Print input matrices and output matrix
+    printf("Matrix A:\n");
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < 5; j++) {
+            printf("%0.2f ", h_A[i * WIDTH + j]);
+        }
+        printf("\n");
+    }
+
+    printf("\nMatrix B:\n");
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < 5; j++) {
+            printf("%0.2f ", h_B[i * WIDTH + j]);
+        }
+        printf("\n");
+    }
+
+    printf("\nMatrix C (Result):\n");
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < 5; j++) {
+            printf("%0.2f ", h_C[i * WIDTH + j]);
+        }
+        printf("\n");
+    }
+
+    printf("\nElapsed Time: %f ms\n", elapsedTime);
 
     // Free memory
     free(h_A);
