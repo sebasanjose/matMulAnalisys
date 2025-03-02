@@ -93,7 +93,7 @@ int main() {
     }
 
     // Print elapsed time
-    printf("\nElapsed Time: %f ms\n", elapsedTime);
+    printf("\nElapsed Time for naive case: %f ms\n", elapsedTime);
 
     // Free memory
     free(h_A);
