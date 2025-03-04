@@ -5,21 +5,41 @@
 #include <time.h>
 
 #define WIDTH 2048  // Large matrix size
+#define TILE_WIDTH 16
 #define EPSILON 1e-4
 #define CHECK_COUNT 10
 
-// Naïve matrix multiplication (No tiling, inefficient)
-__global__ void matMulNaive(float *A, float *B, float *C, int Width) {
-    int Row = blockIdx.y * blockDim.y + threadIdx.y;
-    int Col = blockIdx.x * blockDim.x + threadIdx.x;
+// Optimized matrix multiplication using tiling
+__global__ void matMulTiled(float *A, float *B, float *C, int Width) {
+    __shared__ float A_shared[TILE_WIDTH][TILE_WIDTH];
+    __shared__ float B_shared[TILE_WIDTH][TILE_WIDTH];
 
-    if (Row < Width && Col < Width) {
-        float Pvalue = 0.0;
-        for (int k = 0; k < Width; k++) {
-            Pvalue += A[Row * Width + k] * B[k * Width + Col];
+    int Row = blockIdx.y * TILE_WIDTH + threadIdx.y;
+    int Col = blockIdx.x * TILE_WIDTH + threadIdx.x;
+    float Pvalue = 0.0;
+
+    for (int ph = 0; ph < (Width + TILE_WIDTH - 1) / TILE_WIDTH; ph++) {
+        if (Row < Width && (ph * TILE_WIDTH + threadIdx.x) < Width)
+            A_shared[threadIdx.y][threadIdx.x] = A[Row * Width + ph * TILE_WIDTH + threadIdx.x];
+        else
+            A_shared[threadIdx.y][threadIdx.x] = 0.0f;
+
+        if ((ph * TILE_WIDTH + threadIdx.y) < Width && Col < Width)
+            B_shared[threadIdx.y][threadIdx.x] = B[(ph * TILE_WIDTH + threadIdx.y) * Width + Col];
+        else
+            B_shared[threadIdx.y][threadIdx.x] = 0.0f;
+
+        __syncthreads();
+
+        for (int k = 0; k < TILE_WIDTH; k++) {
+            Pvalue += A_shared[threadIdx.y][k] * B_shared[k][threadIdx.x];
         }
-        C[Row * Width + Col] = Pvalue;
+
+        __syncthreads();
     }
+
+    if (Row < Width && Col < Width)
+        C[Row * Width + Col] = Pvalue;
 }
 
 // Function to verify the results with random sampling
@@ -65,7 +85,7 @@ int main() {
     cudaMemcpy(d_B, h_B, size, cudaMemcpyHostToDevice);
 
     // Define grid and block dimensions
-    dim3 blockSize(16, 16);
+    dim3 blockSize(TILE_WIDTH, TILE_WIDTH);
     dim3 gridSize((WIDTH + blockSize.x - 1) / blockSize.x, (WIDTH + blockSize.y - 1) / blockSize.y);
 
     // Measure execution time
@@ -74,8 +94,8 @@ int main() {
     cudaEventCreate(&stop);
     cudaEventRecord(start);
 
-    // Execute the naive kernel
-    matMulNaive<<<gridSize, blockSize>>>(d_A, d_B, d_C, WIDTH);
+    // Execute the tiled kernel
+    matMulTiled<<<gridSize, blockSize>>>(d_A, d_B, d_C, WIDTH);
 
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
@@ -93,7 +113,7 @@ int main() {
     }
 
     // Print elapsed time
-    printf("\nElapsed Time for naive case: %f ms\n", elapsedTime);
+    printf("\nElapsed Time for tiling case: %f ms\n", elapsedTime);
 
     // Free memory
     free(h_A);
