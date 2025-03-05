@@ -8,32 +8,35 @@
 #define N 2048                // 2048 x 2048 matrices
 #define TILE_SIZE 16          // Block dimension
 #define COARSENING_FACTOR 2   // Each thread computes 2 consecutive elements
+#define CHECK_COUNT 10
+#define EPSILON 1e-4
+
 
 // Coarsened matrix multiplication kernel
 // Each thread computes COARSENING_FACTOR consecutive elements in one row of C.
-__global__ void matMulCoarsened(const float* A, const float* B, float* C, int N) {
+__global__ void matMulCoarsened(const float* A, const float* B, float* C, int dim) {
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     // Each thread processes COARSENING_FACTOR columns starting at colStart
     int colStart = (blockIdx.x * blockDim.x + threadIdx.x) * COARSENING_FACTOR;
 
-    if (row < N) {
+    if (row < dim) {
         float sum[COARSENING_FACTOR] = {0.0f};
         // Loop over the common dimension of A and B
-        for (int k = 0; k < N; k++) {
-            float a = A[row * N + k];
+        for (int k = 0; k < dim; k++) {
+            float a = A[row * dim + k];
             #pragma unroll
             for (int i = 0; i < COARSENING_FACTOR; i++) {
                 int col = colStart + i;
-                if (col < N)
-                    sum[i] += a * B[k * N + col];
+                if (col < dim)
+                    sum[i] += a * B[k * dim + col];
             }
         }
         // Write computed results back to C
         #pragma unroll
         for (int i = 0; i < COARSENING_FACTOR; i++) {
             int col = colStart + i;
-            if (col < N)
-                C[row * N + col] = sum[i];
+            if (col < dim)
+                C[row * dim + col] = sum[i];
         }
     }
 }
@@ -127,7 +130,7 @@ int main() {
     // }
 
         // Verify result with random sampling
-    if (verifyResult(h_A, h_B, h_C, N)) {
+    if (verifyResult(hA, hB, hC, N)) {
         printf("Matrix multiplication is correct!\n");
     } else {
         printf("Matrix multiplication verification failed!\n");
