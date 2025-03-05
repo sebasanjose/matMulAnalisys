@@ -5,7 +5,7 @@
 #include <time.h>
 
 #define WIDTH 2048  // Large matrix size
-#define TILE_WIDTH 32
+#define TILE_WIDTH 16
 #define EPSILON 1e-4
 #define CHECK_COUNT 10
 
