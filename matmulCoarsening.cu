@@ -38,6 +38,24 @@ __global__ void matMulCoarsened(const float* A, const float* B, float* C, int N)
     }
 }
 
+// Function to verify the results with random sampling
+bool verifyResult(float *A, float *B, float *C, int Width) {
+    srand(time(NULL));
+    for (int i = 0; i < CHECK_COUNT; i++) {
+        int row = rand() % Width;
+        int col = rand() % Width;
+        float expected = 0.0;
+        for (int k = 0; k < Width; k++) {
+            expected += A[row * Width + k] * B[k * Width + col];
+        }
+        if (fabs(C[row * Width + col] - expected) > EPSILON) {
+            printf("Mismatch at (%d, %d): expected %0.4f, got %0.4f\n", row, col, expected, C[row * Width + col]);
+            return false;
+        }
+    }
+    return true;
+}
+
 int main() {
     // Calculate size in bytes for a matrix
     size_t bytes = N * N * sizeof(float);
@@ -94,18 +112,25 @@ int main() {
     cudaMemcpy(hC, dC, bytes, cudaMemcpyDeviceToHost);
 
     // Verify results for 10 random positions by comparing GPU results with CPU-computed values.
-    printf("Verifying 10 random positions:\n");
-    for (int i = 0; i < 10; i++) {
-        int row = rand() % N;
-        int col = rand() % N;
-        // Compute the reference value on the CPU.
-        float ref = 0.0f;
-        for (int k = 0; k < N; k++) {
-            ref += hA[row * N + k] * hB[k * N + col];
-        }
-        float gpuVal = hC[row * N + col];
-        printf("Position (%d, %d): GPU = %f, CPU = %f, diff = %e\n",
-               row, col, gpuVal, ref, fabs(gpuVal - ref));
+    // printf("Verifying 10 random positions:\n");
+    // for (int i = 0; i < 10; i++) {
+    //     int row = rand() % N;
+    //     int col = rand() % N;
+    //     // Compute the reference value on the CPU.
+    //     float ref = 0.0f;
+    //     for (int k = 0; k < N; k++) {
+    //         ref += hA[row * N + k] * hB[k * N + col];
+    //     }
+    //     float gpuVal = hC[row * N + col];
+    //     printf("Position (%d, %d): GPU = %f, CPU = %f, diff = %e\n",
+    //            row, col, gpuVal, ref, fabs(gpuVal - ref));
+    // }
+
+        // Verify result with random sampling
+    if (verifyResult(h_A, h_B, h_C, N)) {
+        printf("Matrix multiplication is correct!\n");
+    } else {
+        printf("Matrix multiplication verification failed!\n");
     }
 
     // Clean up device and host memory.
