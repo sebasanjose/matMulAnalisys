@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define WIDTH 2048  // Large matrix size
+#define WIDTH 4096  // Large matrix size
 #define EPSILON 1e-4
 #define CHECK_COUNT 10
 
