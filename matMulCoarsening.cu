@@ -5,9 +5,9 @@
 #include <math.h>
 
 // Matrix dimensions and kernel parameters
-#define N 4096                // 2048 x 2048 matrices
+#define N 2048                // 2048 x 2048 matrices
 #define TILE_SIZE 16          // Block dimension
-#define COARSENING_FACTOR 2   // Each thread computes 2 consecutive elements
+#define COARSENING_FACTOR 4   // Each thread computes 2 consecutive elements
 #define CHECK_COUNT 10
 #define EPSILON 1e-4
 
